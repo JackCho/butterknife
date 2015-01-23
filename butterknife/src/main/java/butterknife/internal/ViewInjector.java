@@ -16,6 +16,7 @@ import static butterknife.internal.ButterKnifeProcessor.VIEW_TYPE;
 
 final class ViewInjector {
   private final Map<Integer, ViewInjection> viewIdMap = new LinkedHashMap<Integer, ViewInjection>();
+  private final Map<Integer, ContentViewInjection> contentViewIdMap = new LinkedHashMap<Integer, ContentViewInjection>();
   private final Map<CollectionBinding, int[]> collectionBindings =
       new LinkedHashMap<CollectionBinding, int[]>();
   private final String classPackage;
@@ -33,7 +34,12 @@ final class ViewInjector {
     getOrCreateViewInjection(id).addViewBinding(binding);
   }
 
-  boolean addListener(int id, ListenerClass listener, ListenerMethod method,
+    void addContentView(int id, ContentViewBinding binding) {
+        getOrCreateContentViewInjection(id).addContentViewBinding(binding);
+    }
+
+
+    boolean addListener(int id, ListenerClass listener, ListenerMethod method,
       ListenerBinding binding) {
     ViewInjection viewInjection = getOrCreateViewInjection(id);
     if (viewInjection.hasListenerBinding(listener, method)
@@ -57,13 +63,22 @@ final class ViewInjector {
   }
 
   private ViewInjection getOrCreateViewInjection(int id) {
-    ViewInjection viewId = viewIdMap.get(id);
-    if (viewId == null) {
-      viewId = new ViewInjection(id);
-      viewIdMap.put(id, viewId);
+        ViewInjection viewId = viewIdMap.get(id);
+        if (viewId == null) {
+            viewId = new ViewInjection(id);
+            viewIdMap.put(id, viewId);
+        }
+        return viewId;
     }
-    return viewId;
-  }
+
+    private ContentViewInjection getOrCreateContentViewInjection(int id) {
+        ContentViewInjection viewId = contentViewIdMap.get(id);
+        if (viewId == null) {
+            viewId = new ContentViewInjection(id);
+            contentViewIdMap.put(id, viewId);
+        }
+        return viewId;
+    }
 
   String getFqcn() {
     return classPackage + "." + className;
@@ -75,6 +90,7 @@ final class ViewInjector {
     builder.append("package ").append(classPackage).append(";\n\n");
 
     builder.append("import android.view.View;\n");
+    builder.append("import android.app.Activity;\n");
     builder.append("import butterknife.ButterKnife.Finder;\n");
     if (parentInjector == null) {
       builder.append("import butterknife.ButterKnife.Injector;\n");
@@ -91,6 +107,8 @@ final class ViewInjector {
     }
     builder.append(" {\n");
 
+    emitContentView(builder);
+    builder.append(" \n");
     emitInject(builder);
     builder.append('\n');
     emitReset(builder);
@@ -98,6 +116,19 @@ final class ViewInjector {
     builder.append("}\n");
     return builder.toString();
   }
+
+   private void emitContentView(StringBuilder builder) {
+        builder.append("  @Override ")
+                .append("public void setContentView(Object source) {\n");
+
+       for (ContentViewInjection injection : contentViewIdMap.values()) {
+           builder.append("    ((Activity)source).setContentView(")
+                   .append(injection.getId())
+                   .append(");\n");
+       }
+
+        builder.append("  }\n");
+    }
 
   private void emitInject(StringBuilder builder) {
     builder.append("  @Override ")

@@ -1,20 +1,7 @@
 package butterknife.internal;
 
 import android.view.View;
-import butterknife.InjectView;
-import butterknife.InjectViews;
-import butterknife.OnCheckedChanged;
-import butterknife.OnClick;
-import butterknife.OnEditorAction;
-import butterknife.OnFocusChange;
-import butterknife.OnItemClick;
-import butterknife.OnItemLongClick;
-import butterknife.OnItemSelected;
-import butterknife.OnLongClick;
-import butterknife.OnPageChange;
-import butterknife.OnTextChanged;
-import butterknife.OnTouch;
-import butterknife.Optional;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -30,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -49,6 +37,22 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
 
+import butterknife.ContentView;
+import butterknife.InjectView;
+import butterknife.InjectViews;
+import butterknife.OnCheckedChanged;
+import butterknife.OnClick;
+import butterknife.OnEditorAction;
+import butterknife.OnFocusChange;
+import butterknife.OnItemClick;
+import butterknife.OnItemLongClick;
+import butterknife.OnItemSelected;
+import butterknife.OnLongClick;
+import butterknife.OnPageChange;
+import butterknife.OnTextChanged;
+import butterknife.OnTouch;
+import butterknife.Optional;
+
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.ElementKind.INTERFACE;
 import static javax.lang.model.element.ElementKind.METHOD;
@@ -61,6 +65,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
   public static final String ANDROID_PREFIX = "android.";
   public static final String JAVA_PREFIX = "java.";
   static final String VIEW_TYPE = "android.view.View";
+  static final String ACTIVITY_TYPE = "android.app.Activity";
   private static final String LIST_TYPE = List.class.getCanonicalName();
   private static final List<Class<? extends Annotation>> LISTENERS = Arrays.asList(//
       OnCheckedChanged.class, //
@@ -92,6 +97,7 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
     Set<String> supportTypes = new LinkedHashSet<String>();
     supportTypes.add(InjectView.class.getCanonicalName());
     supportTypes.add(InjectViews.class.getCanonicalName());
+    supportTypes.add(ContentView.class.getCanonicalName());
     for (Class<? extends Annotation> listener : LISTENERS) {
       supportTypes.add(listener.getCanonicalName());
     }
@@ -135,6 +141,18 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
         error(element, "Unable to generate view injector for @InjectView.\n\n%s", stackTrace);
       }
     }
+
+      // Process each @ContentView element.
+      for (Element element : env.getElementsAnnotatedWith(ContentView.class)) {
+          try {
+              parseContentView(element, targetClassMap, erasedTargetNames);
+          } catch (Exception e) {
+              StringWriter stackTrace = new StringWriter();
+              e.printStackTrace(new PrintWriter(stackTrace));
+
+              error(element, "Unable to generate view injector for @ContentView.\n\n%s", stackTrace);
+          }
+      }
 
     // Process each @InjectViews element.
     for (Element element : env.getElementsAnnotatedWith(InjectViews.class)) {
@@ -215,6 +233,57 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
 
     return false;
   }
+    private void parseContentView(Element element, Map<TypeElement, ViewInjector> targetClassMap,
+                                 Set<String> erasedTargetNames) {
+        boolean hasError = false;
+        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
+//
+//        // Verify that the target type extends from View.
+        TypeMirror elementType = element.asType();
+        if (elementType instanceof TypeVariable) {
+            TypeVariable typeVariable = (TypeVariable) elementType;
+            elementType = typeVariable.getUpperBound();
+        }
+//        if (!isSubtypeOfType(elementType, ACTIVITY_TYPE) && !isInterface(elementType)) {
+//            error(element, "@ContentView fields must extend from Activity or be an interface. (%s.%s)",
+//                    enclosingElement.getQualifiedName(), element.getSimpleName());
+//            hasError = true;
+//        }
+
+        if (hasError) {
+            return;
+        }
+
+        // Assemble information on the injection point.
+        int id = element.getAnnotation(ContentView.class).value();
+
+        ViewInjector injector = targetClassMap.get(enclosingElement);
+        if (injector != null) {
+            ViewInjection viewInjection = injector.getViewInjection(id);
+            if (viewInjection != null) {
+                Iterator<ViewBinding> iterator = viewInjection.getViewBindings().iterator();
+                if (iterator.hasNext()) {
+                    ViewBinding existingBinding = iterator.next();
+                    error(element,
+                            "Attempt to use @InjectView for an already injected ID %d on '%s'. (%s.%s)", id,
+                            existingBinding.getName(), enclosingElement.getQualifiedName(),
+                            element.getSimpleName());
+                    return;
+                }
+            }
+        }
+
+        String name = element.getSimpleName().toString();
+        String type = elementType.toString();
+        boolean required = element.getAnnotation(Optional.class) == null;
+
+        ViewInjector viewInjector = getOrCreateTargetClass(targetClassMap, enclosingElement);
+        ContentViewBinding binding = new ContentViewBinding(name, type, required);
+        viewInjector.addContentView(id, binding);
+
+        // Add the type-erased version to the valid injection targets set.
+        erasedTargetNames.add(enclosingElement.toString());
+    }
 
   private void parseInjectView(Element element, Map<TypeElement, ViewInjector> targetClassMap,
       Set<String> erasedTargetNames) {
