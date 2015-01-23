@@ -2,6 +2,8 @@ package butterknife.internal;
 
 import android.view.View;
 
+import com.sun.tools.javac.code.Symbol;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,6 +28,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
@@ -236,7 +239,9 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
     private void parseContentView(Element element, Map<TypeElement, ViewInjector> targetClassMap,
                                  Set<String> erasedTargetNames) {
         boolean hasError = false;
-        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
+
+        TypeElement enclosingElement = (elementUtils.getTypeElement(((Symbol.ClassSymbol)element).getQualifiedName().toString()));
+//        TypeElement enclosingElement = (TypeElement) element.getEnclosingElement();
 //
 //        // Verify that the target type extends from View.
         TypeMirror elementType = element.asType();
@@ -244,11 +249,11 @@ public final class ButterKnifeProcessor extends AbstractProcessor {
             TypeVariable typeVariable = (TypeVariable) elementType;
             elementType = typeVariable.getUpperBound();
         }
-//        if (!isSubtypeOfType(elementType, ACTIVITY_TYPE) && !isInterface(elementType)) {
-//            error(element, "@ContentView fields must extend from Activity or be an interface. (%s.%s)",
-//                    enclosingElement.getQualifiedName(), element.getSimpleName());
-//            hasError = true;
-//        }
+        if (!isSubtypeOfType(elementType, ACTIVITY_TYPE) && !isInterface(elementType)) {
+            error(element, "@ContentView fields must extend from Activity or be an interface. (%s.%s)",
+                    enclosingElement.getQualifiedName(), element.getSimpleName());
+            hasError = true;
+        }
 
         if (hasError) {
             return;

@@ -21,7 +21,7 @@ import butterknife.OnLongClick;
 
 import static android.widget.Toast.LENGTH_SHORT;
 
-
+@ContentView(R.layout.simple_activity)
 public class SimpleActivity extends Activity {
     private static final ButterKnife.Action<View> ALPHA_FADE = new ButterKnife.Action<View>() {
         @Override
@@ -33,6 +33,7 @@ public class SimpleActivity extends Activity {
             view.startAnimation(alphaAnimation);
         }
     };
+
 
     @InjectViews({R.id.title, R.id.subtitle, R.id.hello})
     List<View> headerViews;
@@ -67,7 +68,6 @@ public class SimpleActivity extends Activity {
     }
 
     @Override
-    @ContentView(R.layout.simple_activity)
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 //        setContentView(R.layout.simple_activity);

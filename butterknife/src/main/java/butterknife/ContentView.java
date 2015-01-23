@@ -3,7 +3,7 @@ package butterknife;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.CLASS;
 
 /**
@@ -15,7 +15,7 @@ import static java.lang.annotation.RetentionPolicy.CLASS;
  *
  * @see butterknife.Optional
  */
-@Retention(CLASS) @Target(METHOD)
+@Retention(CLASS) @Target(TYPE)
 public @interface ContentView {
   /** View ID to which the field will be bound. */
   int value();
